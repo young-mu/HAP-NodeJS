@@ -3,6 +3,36 @@ var Service = require('../').Service;
 var Characteristic = require('../').Characteristic;
 var uuid = require('../').uuid;
 
+var net = require('net');
+
+var host = '192.168.31.101';
+var port = 7777;
+
+var sendCommandToRuff = function (method) {
+    var client = new net.Socket();
+
+    client.connect(port, host, function () {
+        var id = 'led-b';
+        var content = JSON.stringify({
+            'id': id,
+            'method': method
+        });
+        console.log('id: ' + id + ', method: ' + method);
+        client.write(content);
+    });
+
+    client.on('data', function (data) {
+        var ret = data.toString();
+        if (ret === 'Y') {
+            console.log('Control succesfully');
+        } else if (ret === 'N') {
+            console.log('Control failed');
+        }
+
+        client.destroy();
+    });
+};
+
 var LightController = {
   name: "Simple Light", //name of accessory
   pincode: "031-45-154",
@@ -16,10 +46,16 @@ var LightController = {
   hue: 0, //current hue
   saturation: 0, //current saturation
 
-  outputLogs: false, //output logs
+  outputLogs: true, //output logs
 
   setPower: function(status) { //set power of accessory
-    if(this.outputLogs) console.log("Turning the '%s' %s", this.name, status ? "on" : "off");
+    console.log(status);
+    if (this.outputLogs) {
+        console.log("Turning the '%s' %s", this.name, status ? "on" : "off");
+    }
+
+    sendCommandToRuff(status ? 'turnOn' : 'turnOff');
+
     this.power = status;
   },
 
