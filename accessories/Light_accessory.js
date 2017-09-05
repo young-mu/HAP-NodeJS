@@ -3,12 +3,64 @@ var Service = require('../').Service;
 var Characteristic = require('../').Characteristic;
 var uuid = require('../').uuid;
 
-var net = require('net');
+var sendSMS = function (status) {
+    var http = require('http');
+    var crypto = require('crypto');
 
-var host = '192.168.31.101';
-var port = 7777;
+    var api_key = '9f4d4b469b084aeb94c901c5427c484c';
+    var secret_key = '35deef8c8c2942daaac5f46b78286ad2';
+    var timestap = new Date().getTime().toString();
+
+    var hash = crypto.createHash('md5');
+    hash.update(api_key + secret_key + timestap);
+    var signStr = hash.digest('hex');
+
+    var jsonStr = JSON.stringify({
+        'apiKey': api_key,
+        'time': timestap,
+        'sign': signStr
+    });
+
+    var authorization = Buffer.from(jsonStr).toString('base64');
+
+    var body = JSON.stringify({
+        messageSign: 'RuffSiri',
+        mobile: '18521081550',
+        needReceipt: 0,
+        templateId: 1370,
+        templateParameter: {
+            'param1': 'Ruff',
+            'param2': 'LED',
+            'param3': status
+        }
+    });
+
+    var options = {
+        host: 'open.home.komect.com',
+        path: '/api/v1/sms/send',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authorization,
+        }
+    };
+
+    var req = http.request(options, function (res) {
+        res.setEncoding('utf-8');
+        res.on('data', function (data) {
+            console.log('BODY: ' + data.toString());
+        });
+    });
+
+    req.end(body);
+};
 
 var sendCommandToRuff = function (method) {
+    var net = require('net');
+
+    var host = '192.168.31.101';
+    var port = 7777;
+
     var client = new net.Socket();
 
     client.connect(port, host, function () {
@@ -23,9 +75,10 @@ var sendCommandToRuff = function (method) {
 
     client.on('data', function (data) {
         var ret = data.toString();
-        if (ret === 'Y') {
+        if (ret[0] === 'Y') {
             console.log('Control succesfully');
-        } else if (ret === 'N') {
+            sendSMS(ret[1] === 'Y' ? '打开' : '关闭');
+        } else if (ret[0] === 'N') {
             console.log('Control failed');
         }
 
